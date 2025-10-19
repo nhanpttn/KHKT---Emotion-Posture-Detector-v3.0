@@ -55,10 +55,35 @@ HTML_PAGE = """
   <head>
     <link rel="icon" href="{{ url_for('static', filename='emotion_posture_detector.ico') }}" type="image/x-icon">
     <title>Emotion + Posture Detector Stream</title>
+    <style>
+      body {
+        background: #a19fa2;
+        color: #fff;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        height: 100vh; /* Chiều cao toàn màn hình */
+        display: flex;
+        flex-direction: column; /* Sắp xếp theo cột */
+        justify-content: center; /* Căn giữa theo chiều dọc */
+        align-items: center; /* Căn giữa theo chiều ngang */
+      }
+
+      h2 {
+        margin-bottom: 20px;
+      }
+
+      img {
+        max-width: 90%;
+        height: auto;
+        border-radius: 10px; /* Bo góc */
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.3); /* Đổ bóng nhẹ */
+      }
+    </style>
   </head>
-  <body style="background:#a19fa2;color:#fff;">
+
+  <body>
     <h2>Emotion + Posture Detector Live - Camera</h2>
-    <img src="{{ url_for('video_feed') }}" style="max-width:100%;height:auto;">
+    <img src="{{ url_for('video_feed') }}">
   </body>
 </html>
 """
@@ -214,6 +239,7 @@ def run_detection(cam_index):
 
     # start Flask server lần đầu (1 thread)
     if not hasattr(run_detection, "_flask_started"):
+        update_progress(10, "Khởi động Flask server...")
         t = Thread(target=start_flask_server, daemon=True)
         t.start()
         
@@ -222,13 +248,13 @@ def run_detection(cam_index):
         
         run_detection._flask_started = True
 
+    # Tiến trình 25%
+    update_progress(25, "Đang tải mô hình nhận diện cảm xúc (Keras)...")
+
     # Luôn lấy link IP và hiển thị hộp thoại mỗi lần mở camera
     local_ip = get_local_ip()
     link = f"http://{local_ip}:5000/"
     print(f"Flask server: {link}")
-
-    #gọi show_stream_link mỗi lần mở camera
-    root.after(100, show_stream_link, link)
 
     # Bắt đầu broadcast link (nếu chưa chạy thì mới chạy)
     if not hasattr(run_detection, "_broadcast_started"):
@@ -250,12 +276,18 @@ def run_detection(cam_index):
         return
 
     classifier = load_model(model_h5)
+    # Tiến trình 50%
+    update_progress(50, "Đang tải mô hình tư thế (MediaPipe)...")
+
     class_labels = ['Giận dữ', 'Ghê sợ', 'Sợ hãi',
                     'Vui vẻ', 'Buồn', 'Bất ngờ', 'Trung lập']
 
     mp_pose = mp.solutions.pose
     pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
     mp_drawing = mp.solutions.drawing_utils
+
+    # Tiến trình 70%
+    update_progress(70, "Đang mở camera...")
 
     cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
     WIDTH, HEIGHT = 1280, 720
@@ -265,6 +297,13 @@ def run_detection(cam_index):
     if not cap.isOpened():
         messagebox.showerror("Lỗi", "Không thể mở camera.")
         return
+
+    # Tiến trình 100%
+    update_progress(100, "Hoàn tất! Mở camera...")
+    root.after(0, lambda: loading_window.destroy() if loading_window and loading_window.winfo_exists() else None)
+
+    #gọi show_stream_link sau khi OpenCV mở lên
+    root.after(100, show_stream_link, link)
 
     history = deque(maxlen=150)
     start_time = time.time()
@@ -418,15 +457,62 @@ def run_detection(cam_index):
     cap.release()
     cv2.destroyAllWindows()
 
+loading_window = None
+progress_bar = None
+progress_label = None
+
+def show_loading_window():
+    """Tạo cửa sổ hiển thị tiến trình load thật."""
+    global loading_window, progress_bar, progress_label
+
+    loading_window = tk.Toplevel(root)
+    loading_window.title("Đang khởi động camera...")
+    loading_window.geometry("400x140")
+    loading_window.resizable(False, False)
+    loading_window.attributes('-topmost', True)
+
+    tk.Label(loading_window, text="Đang khởi động hệ thống, vui lòng chờ...", 
+             font=("Arial", 10)).pack(pady=10)
+
+    progress_bar = ttk.Progressbar(loading_window, orient="horizontal", length=350, mode="determinate")
+    progress_bar.pack(pady=10)
+    progress_bar["maximum"] = 100
+    progress_bar["value"] = 0
+
+    progress_label = tk.Label(loading_window, text="0%", font=("Arial", 10, "bold"))
+    progress_label.pack()
+
+def update_progress(percent, text=None):
+    """Cập nhật tiến trình lên giao diện."""
+    if progress_bar and progress_label and loading_window and loading_window.winfo_exists():
+        progress_bar["value"] = percent
+        if text:
+            progress_label.config(text=f"{text} ({percent}%)")
+        else:
+            progress_label.config(text=f"{percent}%")
+        loading_window.update_idletasks()
+
+
 # GUI chọn camera
 def open_camera():
     selected = combo.current()
     if selected == -1:
         messagebox.showwarning("Chưa chọn", "Vui lòng chọn một camera.")
         return
-    #Chạy run_detection trong thread riêng để không block GUI
-    t = Thread(target=run_detection, args=(selected,), daemon=True)
+
+    # Hiển thị cửa sổ loading
+    show_loading_window()
+
+    def start_detection():
+        try:
+            run_detection(selected)  # chạy nhận diện
+        finally:
+            # Nếu cửa sổ loading vẫn tồn tại, đóng nó
+            root.after(0, lambda: loading_window.destroy() if loading_window and loading_window.winfo_exists() else None)
+
+    t = Thread(target=start_detection, daemon=True)
     t.start()
+
 
 # GUI khởi động ngay lập tức
 root = tk.Tk()
@@ -450,4 +536,3 @@ btn = tk.Button(root, text="Mở Camera", command=open_camera)
 btn.pack(pady=10)
 
 root.mainloop()
-
