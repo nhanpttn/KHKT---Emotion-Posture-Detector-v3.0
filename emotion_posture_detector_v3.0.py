@@ -2,7 +2,7 @@
 # Tác giả: Nguyễn Tấn Phú, Nguyễn Xuân Trụ
 # Giáo viên hướng dẫn: Huỳnh Thị Khánh Nga
 # Lớp: 12/5
-# Trường: THPT Nguyễn Trãi
+# Trường: THPT Nguyễn Trãi, Đà Nẵng
 import cv2
 import numpy as np
 import os
@@ -536,3 +536,4 @@ btn = tk.Button(root, text="Mở Camera", command=open_camera)
 btn.pack(pady=10)
 
 root.mainloop()
+
