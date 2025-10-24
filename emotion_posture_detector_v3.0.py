@@ -49,11 +49,12 @@ def udp_broadcast(message, port=5000, interval=5):
 # Flask app đơn giản
 app = Flask(__name__)
 
-
+# Trang web
 HTML_PAGE = """
 <html>
   <head>
     <link rel="icon" href="{{ url_for('static', filename='emotion_posture_detector.ico') }}" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Emotion + Posture Detector Stream</title>
     <style>
       body {
@@ -195,6 +196,7 @@ def calculate_angle(a, b, c):
     )
     return abs(angle)
 
+# Hộp thoại thông báo đã sao chép đường link
 def copy_link_to_clipboard(link, link_window):
     """Sao chép đường link vào clipboard."""
     root.clipboard_clear()
@@ -202,8 +204,8 @@ def copy_link_to_clipboard(link, link_window):
     messagebox.showinfo("Thông báo", "Đã sao chép đường link vào Clipboard!")
     link_window.destroy() # Đóng cửa sổ sau khi copy
 
+# Hộp thoại hiện link stream và nút copy
 def show_stream_link(link):
-    """Hiển thị hộp thoại chứa link stream và nút copy."""
     link_window = tk.Toplevel(root)
     link_window.title("Đường Link Stream")
     
@@ -316,7 +318,7 @@ def run_detection(cam_index):
         if not ret:
             break
 
-        # --- giữ nguyên logic nhận diện ---
+        # Vẽ khung và nhãn cảm xúc
         frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         draw = ImageDraw.Draw(frame_pil)
         font = ImageFont.truetype(font_path, 28)
@@ -461,8 +463,8 @@ loading_window = None
 progress_bar = None
 progress_label = None
 
+# Tạo cửa sổ hiển thị tiến trình
 def show_loading_window():
-    """Tạo cửa sổ hiển thị tiến trình load thật."""
     global loading_window, progress_bar, progress_label
 
     loading_window = tk.Toplevel(root)
@@ -482,8 +484,8 @@ def show_loading_window():
     progress_label = tk.Label(loading_window, text="0%", font=("Arial", 10, "bold"))
     progress_label.pack()
 
+# Cập nhật tiến trình
 def update_progress(percent, text=None):
-    """Cập nhật tiến trình lên giao diện."""
     if progress_bar and progress_label and loading_window and loading_window.winfo_exists():
         progress_bar["value"] = percent
         if text:
@@ -491,7 +493,6 @@ def update_progress(percent, text=None):
         else:
             progress_label.config(text=f"{percent}%")
         loading_window.update_idletasks()
-
 
 # GUI chọn camera
 def open_camera():
@@ -536,4 +537,3 @@ btn = tk.Button(root, text="Mở Camera", command=open_camera)
 btn.pack(pady=10)
 
 root.mainloop()
-
